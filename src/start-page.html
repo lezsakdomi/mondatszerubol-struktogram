@@ -13,6 +13,65 @@
     </style>
 
     <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            new MutationObserver(records => records.forEach(record => {
+                for (let node of record.addedNodes) {
+                    if (node instanceof HTMLTextAreaElement && 'autoindent' in node.dataset && node.dataset.autoindent !== 'off') {
+                        node.addEventListener('keypress', e => {
+                            if (e.key === 'Enter') {
+                                const target = e.target
+                                const s = target.value
+                                const [ss, se] = [Math.min(target.selectionStart, target.selectionEnd), Math.max(target.selectionStart, target.selectionEnd)]
+                                const sd = target.selectionStart === target.selectionEnd
+                                    ? 'none'
+                                    : target.selectionStart < target.selectionEnd
+                                        ? 'forward'
+                                        : 'backward'
+
+                                let i, j, k;
+                                for (i = ss - 1; i > 0; i--) {
+                                    if (s[i] === "\n") {
+                                        i++;
+                                        break;
+                                    }
+                                }
+                                for (j = i; j < s.length; j++) {
+                                    if (s[j] !== " ") {
+                                        break;
+                                    }
+                                }
+                                for (k = j; k < s.length; k++) {
+                                    if (s[k] === "\n") {
+                                        break;
+                                    }
+                                }
+
+                                if (!e.shiftKey) {
+                                    if (!e.ctrlKey) {
+                                        target.value = s.slice(0, ss) + "\n" + s.slice(i, j) + s.slice(se)
+                                        target.setSelectionRange(ss + j - i + 1, ss + j - i + 1, 'none')
+                                    } else { // e.ctrlKey
+                                        target.value = s.slice(0, k) + "\n" + s.slice(i, j) + s.slice(k)
+                                        target.setSelectionRange(ss, se, sd)
+                                    }
+                                } else { // e.shiftKey
+                                    // e.ctrlKey is never caught
+
+                                    target.value = s.slice(0, k) + "\n" + " ".repeat(ss - i) + s.slice(ss, se) + s.slice(k)
+                                    target.setSelectionRange(k + ss - i + 1, k + se - i + 1, sd)
+                                }
+
+                                e.preventDefault()
+                                target.dispatchEvent(new InputEvent('input'))
+                            }
+                        })
+                    }
+                }
+            })).observe(document.body, {childList: true})
+        })
+    </script>
+
+    <script>
         // based on http://algtan1.elte.hu/downloads/eloadas/Bevezetes.pdf
 
         window.customElements.define('x-diagram', class Diagram extends HTMLElement {

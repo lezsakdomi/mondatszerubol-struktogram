@@ -83,6 +83,7 @@ view model =
                     , Html.Attributes.placeholder "Type some mondatszerű code here..."
                     , Html.Attributes.rows (String.split "\n" code |> List.length)
                     , Html.Attributes.cols (String.split "\n" code |> List.map String.length |> List.maximum |> Maybe.withDefault 0)
+                    , Html.Attributes.attribute "data-autoindent" "on"
                     ]
                     []
                 , case String.isEmpty code of

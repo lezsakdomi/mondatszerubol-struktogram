@@ -593,6 +593,7 @@
                 header.style.fontFamily = "monospace"
                 header.innerText = "Initialization Error"
                 const pre = document.createElement("pre")
+                document.body.appendChild(pre)
                 document.body.insertBefore(header, pre)
                 pre.innerText = e
                 throw e

@@ -5168,6 +5168,14 @@ var $elm$browser$Browser$Document = F2(
 var $author$project$Msg$GotCode = function (a) {
 	return {$: 'GotCode', a: a};
 };
+var $elm$virtual_dom$VirtualDom$attribute = F2(
+	function (key, value) {
+		return A2(
+			_VirtualDom_attribute,
+			_VirtualDom_noOnOrFormAction(key),
+			_VirtualDom_noJavaScriptOrHtmlUri(value));
+	});
+var $elm$html$Html$Attributes$attribute = $elm$virtual_dom$VirtualDom$attribute;
 var $elm$html$Html$Attributes$cols = function (n) {
 	return A2(
 		_VirtualDom_attribute,
@@ -6259,7 +6267,8 @@ var $author$project$Main$view = function (model) {
 									A2(
 										$elm$core$List$map,
 										$elm$core$String$length,
-										A2($elm$core$String$split, '\n', code)))))
+										A2($elm$core$String$split, '\n', code))))),
+							A2($elm$html$Html$Attributes$attribute, 'data-autoindent', 'on')
 						]),
 					_List_Nil),
 					function () {

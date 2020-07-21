@@ -1,0 +1,544 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>mondatszerűből struktogram</title>
+    <base href="/">
+
+    <style>
+        textarea {
+            display: block;
+            resize: none;
+        }
+    </style>
+
+    <script>
+        // based on http://algtan1.elte.hu/downloads/eloadas/Bevezetes.pdf
+
+        window.customElements.define('x-diagram', class Diagram extends HTMLElement {
+            // noinspection JSUnusedGlobalSymbols
+            constructor() {
+                super();
+
+                const shadow = this.attachShadow({mode: 'open'})
+
+                this.addEventListener('computedSize', () => {
+                    this.resize()
+                })
+
+                this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+                this.svg.setAttribute("xmlns", "http://www.w3.org/2000/svg")
+                shadow.appendChild(this.svg)
+
+                this.img = document.createElement('img')
+                this.img.style.position = 'absolute'
+                this.img.style.opacity = '0'
+                this.img.addEventListener('mousedown', () => {
+                    this.img.src = this.imageUrl
+                })
+                shadow.insertBefore(this.img, this.svg)
+
+                new MutationObserver(records => records.forEach(record => {
+                    switch (record.type) {
+                        case 'childList':
+                            for (let node of record.addedNodes) {
+                                this.svg.appendChild(node.graphicNode)
+                            }
+                            for (let node of record.removedNodes) {
+                                this.svg.removeChild(node.graphicNode)
+                            }
+                            break
+
+                        default:
+                            console.error(new Error(`Unexpected mutation type ${record.type}`))
+                    }
+                })).observe(this, {childList: true})
+            }
+
+            get image() {
+                return new File([this.svg.outerHTML], "diagram.svg", {type: 'image/svg+xml', lastModified: Date.now()})
+            }
+
+            get imageUrl() {
+                return URL.createObjectURL(this.image)
+                // return `data:image/svg+xml,${this.svg.outerHTML}`
+                // return `data:image/svg+xml;base64,${btoa(this.svg.outerHTML)}`
+            }
+
+            resize() {
+                const element = this.childNodes[0]
+                const size = element.computedSize
+
+                this.svg.setAttribute('width', String(element.width = size.width))
+                this.svg.setAttribute('height', String(element.height = size.height))
+
+                this.img.setAttribute('width', String(element.width = size.width))
+                this.img.setAttribute('height', String(element.height = size.height))
+            }
+        })
+
+        window.customElements.define('x-struktogram', class Struktogram extends HTMLElement {
+            // noinspection JSUnusedGlobalSymbols
+            constructor() {
+                super();
+
+                this.addEventListener('computedSize', () => {
+                    delete this._computedSize
+                    this.resize()
+                })
+
+                const g = document.createElementNS("http://www.w3.org/2000/svg", 'g')
+                this.graphicNode = g
+
+                this.rect = document.createElementNS("http://www.w3.org/2000/svg", "rect")
+                this.rect.style.fill = 'none'
+                this.rect.style.stroke = 'black'
+                g.appendChild(this.rect)
+
+                new MutationObserver(records => records.forEach(record => {
+                    switch (record.type) {
+                        case 'childList':
+                            for (let node of record.addedNodes) {
+                                // noinspection JSUnresolvedVariable
+                                g.insertBefore(node.graphicNode, record.nextSibling && record.nextSibling.graphicNode)
+                            }
+                            for (let node of record.removedNodes) {
+                                g.removeChild(node.graphicNode)
+                            }
+                            break
+
+                        default:
+                            console.error(new Error(`Unexpected mutation type ${record.type}`))
+                    }
+                })).observe(this, {childList: true})
+            }
+
+            get computedSize() {
+                if (this._computedSize) return this._computedSize
+
+                const sizes = new Map([...this.children].map(element => [element, element.computedSize]))
+
+                const width = Math.max(...[...sizes.values()].map(o => o.width))
+                let height = 0
+
+                const elementMap = new Map()
+                for (let [element, size] of sizes.entries()) {
+                    elementMap.set(element, {
+                        width,
+                        height: size.height,
+                        x: 0,
+                        y: height,
+                    })
+
+                    height += size.height
+                }
+
+                return this._computedSize = {width, height, elementMap}
+            }
+
+            set width(width) {
+                this.rect.setAttribute('width', String(width))
+                for (let element of this.children) {
+                    element.width = width
+                }
+            }
+
+            set height(height) {
+                this.rect.setAttribute('height', String(height))
+            }
+
+            resize() {
+                const {elementMap} = this.computedSize
+
+                for (let [element, {height, y}] of elementMap.entries()) {
+                    element.height = height
+                    element.graphicNode.setAttribute('transform', `translate(0, ${y})`)
+                }
+            }
+        })
+
+        window.customElements.define('x-utasitas', class Utasítás extends HTMLElement {
+            get padding() {
+                return 5
+            }
+
+            get height() {
+                return 25
+            }
+
+            text;
+            rect;
+
+            // noinspection JSUnusedGlobalSymbols
+            constructor() {
+                super();
+
+                const g = document.createElementNS("http://www.w3.org/2000/svg", 'g')
+                this.graphicNode = g
+
+                this.rect = document.createElementNS("http://www.w3.org/2000/svg", 'rect')
+                this.rect.style.fill = 'none'
+                this.rect.style.stroke = 'black'
+                g.appendChild(this.rect)
+
+                this.text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                g.appendChild(this.text)
+
+                new MutationObserver(() => {
+                    const [code] = this.childNodes
+                    this.text.textContent = code.textContent
+                    this.dispatchEvent(new CustomEvent('computedSize', {bubbles: true}))
+                }).observe(this, {childList: true, characterData: true, subtree: true})
+            }
+
+            get computedSize() {
+                const size = this.text.getBBox()
+                return {
+                    width: size.width + 2 * this.padding,
+                    height: this.height,
+                }
+            }
+
+            set width(width) {
+                this.rect.setAttribute('width', width)
+                this.text.setAttribute('x', this.padding)
+            }
+
+            set height(height) {
+                this.rect.setAttribute('height', height)
+                this.text.setAttribute('y', height - this.padding)
+            }
+        })
+
+        window.customElements.define('x-elagazas', class Elágazás extends HTMLElement {
+            get padding() {
+                return 5
+            }
+
+            get height() {
+                return 40
+            }
+
+            // noinspection JSUnusedGlobalSymbols
+            constructor() {
+                super();
+
+                this.addEventListener('computedSize', () => {
+                    delete this._computedSize
+                })
+
+                const g = document.createElementNS("http://www.w3.org/2000/svg", 'g')
+                this.graphicNode = g
+
+                this.rect = document.createElementNS("http://www.w3.org/2000/svg", 'rect')
+                this.rect.style.fill = 'none'
+                this.rect.style.stroke = 'black'
+                g.appendChild(this.rect)
+
+                this.text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                g.appendChild(this.text)
+
+                this.tText = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                this.tText.textContent = "i"
+                this.tText.style.fill = "grey"
+                g.appendChild(this.tText)
+
+                this.fText = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                this.fText.textContent = "n"
+                this.fText.style.fill = "grey"
+                g.appendChild(this.fText)
+
+                this.polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline")
+                this.polyline.style.fill = 'none'
+                this.polyline.style.stroke = 'black'
+                g.appendChild(this.polyline)
+
+                new MutationObserver(records => records.forEach(record => {
+                    for (let node of record.addedNodes) {
+                        if (node instanceof HTMLElement) {
+                            g.appendChild(node.graphicNode)
+                        } else {
+                            this.text.textContent = node.textContent
+                            this.dispatchEvent(new CustomEvent('computedSize', {bubbles: true}))
+                        }
+                    }
+
+                    for (let node of record.removedNodes) {
+                        if (node instanceof HTMLElement) {
+                            g.removeChild(node.graphicNode)
+                        } else {
+                            this.text.textContent = ""
+                            this.dispatchEvent(new CustomEvent('computedSize', {bubbles: true}))
+                        }
+                    }
+                })).observe(this, {childList: true})
+            }
+
+            get computedSize() {
+                if (this._computedSize) return this._computedSize
+
+                const [, left, right] = this.childNodes
+
+                const textSize = this.textSize
+                const leftSize = left.computedSize
+                const rightSize = right.computedSize
+
+                const width = Math.max(textSize.width, leftSize.width + rightSize.width)
+                const height = Math.max(leftSize.height, rightSize.height) + this.height
+
+                return this._computedSize = {
+                    width, height,
+                    left: {
+                        width: leftSize.width,
+                        height: height - this.height,
+                    },
+                    right: {
+                        width: width - leftSize.width,
+                        height: height - this.height,
+                    },
+                }
+            }
+
+            get textSize() {
+                return this.text.getBBox({clipped: false, fill: false, markers: false, stroke: true})
+            }
+
+            set width(width) {
+                const [, left, right] = this.childNodes
+                const pivot = this.computedSize.left.width;
+
+                // this.text.setAttribute('x', String(pivot - (this.textSize.width) / 2))
+                this.text.setAttribute('x', String((width - this.textSize.width) / 2))
+                this.tText.setAttribute('x', String(this.padding))
+                this.fText.setAttribute('x', String(width - this.padding - 10))
+                this.rect.setAttribute('width', width)
+                // this.polyline.setAttribute('points', `0,0 ${pivot},${this.height} ${width},0`)
+                this.polyline.setAttribute('points', `0,0 ${this.height},${this.height} ${width - this.height},${this.height} ${width},0`)
+                left.graphicNode.setAttribute('transform', `translate(${0}, ${this.height})`)
+                right.graphicNode.setAttribute('transform', `translate(${pivot}, ${this.height})`)
+                left.width = pivot
+                right.width = width - pivot
+            }
+
+            set height(height) {
+                const [, left, right] = this.childNodes
+                this.text.setAttribute('y', String(this.padding + this.textSize.height))
+                this.tText.setAttribute('y', String(this.height - this.padding))
+                this.fText.setAttribute('y', String(this.height - this.padding))
+                this.rect.setAttribute('height', String(this.height))
+                left.height = height - this.height
+                right.height = height - this.height
+            }
+        })
+
+        window.customElements.define('x-eloltesztelos-ciklus', class ElöltesztelősCiklus extends HTMLElement {
+            get padding() {
+                return 5
+            }
+
+            get height() {
+                return 40
+            }
+
+            get width() {
+                return 40
+            }
+
+            // noinspection JSUnusedGlobalSymbols
+            constructor() {
+                super();
+
+                this.addEventListener('computedSize', () => {
+                    delete this._computedSize
+                    const [, body] = this.childNodes
+                    body.graphicNode.setAttribute('transform', `translate(${this.width}, ${this.height})`)
+                })
+
+                const g = document.createElementNS("http://www.w3.org/2000/svg", 'g')
+                this.graphicNode = g
+
+                this.rect = document.createElementNS("http://www.w3.org/2000/svg", 'rect')
+                this.rect.style.fill = 'none'
+                this.rect.style.stroke = 'black'
+                g.appendChild(this.rect)
+
+                this.text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                g.appendChild(this.text)
+
+                new MutationObserver(records => records.forEach(record => {
+                    for (let node of record.addedNodes) {
+                        if (node instanceof HTMLElement) {
+                            g.appendChild(node.graphicNode)
+                        } else {
+                            this.text.textContent = node.textContent
+                            this.dispatchEvent(new CustomEvent('computedSize', {bubbles: true}))
+                        }
+                    }
+
+                    for (let node of record.removedNodes) {
+                        if (node instanceof HTMLElement) {
+                            g.removeChild(node.graphicNode)
+                        } else {
+                            this.text.textContent = ""
+                            this.dispatchEvent(new CustomEvent('computedSize', {bubbles: true}))
+                        }
+                    }
+                })).observe(this, {childList: true})
+            }
+
+            get computedSize() {
+                if (this._computedSize) return this._computedSize
+
+                const [, body] = this.childNodes
+
+                const textSize = this.textSize
+                const bodySize = body.computedSize
+
+                const width = this.width + Math.max(textSize.width, bodySize.width)
+                const height = this.height + bodySize.height
+
+                return this._computedSize = {
+                    width, height,
+                    body: {
+                        width: bodySize.width,
+                        height: bodySize.height,
+                    },
+                }
+            }
+
+            get textSize() {
+                return this.text.getBBox({clipped: false, fill: false, markers: false, stroke: true})
+            }
+
+            set width(width) {
+                const [, body] = this.childNodes
+                // this.text.setAttribute('x', String(this.width + (width - this.width - this.textSize.width) / 2))
+                this.text.setAttribute('x', String((width - this.textSize.width) / 2))
+                this.rect.setAttribute('width', width)
+                body.width = width - this.width
+            }
+
+            set height(height) {
+                const [, body] = this.childNodes
+                this.text.setAttribute('y', String(this.height - this.padding))
+                this.rect.setAttribute('height', height)
+                body.height = height - this.height
+            }
+        })
+
+        window.customElements.define('x-hatultesztelos-ciklus', class HátultesztelősCiklus extends HTMLElement {
+            get padding() {
+                return 5
+            }
+
+            get height() {
+                return 40
+            }
+
+            get width() {
+                return 40
+            }
+
+            // noinspection JSUnusedGlobalSymbols
+            constructor() {
+                super();
+
+                this.addEventListener('computedSize', () => {
+                    delete this._computedSize
+                    const [, body] = this.childNodes
+                    body.graphicNode.setAttribute('transform', `translate(${this.width}, 0)`)
+                })
+
+                const g = document.createElementNS("http://www.w3.org/2000/svg", 'g')
+                this.graphicNode = g
+
+                this.rect = document.createElementNS("http://www.w3.org/2000/svg", 'rect')
+                this.rect.style.fill = 'none'
+                this.rect.style.stroke = 'black'
+                g.appendChild(this.rect)
+
+                this.text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                g.appendChild(this.text)
+
+                new MutationObserver(records => records.forEach(record => {
+                    for (let node of record.addedNodes) {
+                        if (node instanceof HTMLElement) {
+                            g.appendChild(node.graphicNode)
+                        } else {
+                            this.text.textContent = node.textContent
+                            this.dispatchEvent(new CustomEvent('computedSize', {bubbles: true}))
+                        }
+                    }
+
+                    for (let node of record.removedNodes) {
+                        if (node instanceof HTMLElement) {
+                            g.removeChild(node.graphicNode)
+                        } else {
+                            this.text.textContent = ""
+                            this.dispatchEvent(new CustomEvent('computedSize', {bubbles: true}))
+                        }
+                    }
+                })).observe(this, {childList: true})
+            }
+
+            get computedSize() {
+                if (this._computedSize) return this._computedSize
+
+                const [, body] = this.childNodes
+
+                const textSize = this.textSize
+                const bodySize = body.computedSize
+
+                const width = this.width + Math.max(textSize.width, bodySize.width)
+                const height = this.height + bodySize.height
+
+                return this._computedSize = {
+                    width, height,
+                    body: {
+                        width: bodySize.width,
+                        height: bodySize.height,
+                    },
+                }
+            }
+
+            get textSize() {
+                return this.text.getBBox({clipped: false, fill: false, markers: false, stroke: true})
+            }
+
+            set width(width) {
+                const [, body] = this.childNodes
+                // this.text.setAttribute('x', String(this.width + (width - this.width - this.textSize.width) / 2))
+                this.text.setAttribute('x', String((width - this.textSize.width) / 2))
+                this.rect.setAttribute('width', width)
+                body.width = width - this.width
+            }
+
+            set height(height) {
+                const [, body] = this.childNodes
+                this.text.setAttribute('y', String(height - this.height + this.padding + this.textSize.height))
+                this.rect.setAttribute('height', height)
+                body.height = height - this.height
+            }
+        })
+    </script>
+
+    <script src="build/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                // noinspection JSUnresolvedVariable
+                Elm.Main.init()
+            } catch (e) {
+                // display initialization errors (e.g. bad flags, infinite recursion)
+                const header = document.createElement("h1")
+                header.style.fontFamily = "monospace"
+                header.innerText = "Initialization Error"
+                const pre = document.getElementById("elm")
+                document.body.insertBefore(header, pre)
+                pre.innerText = e
+                throw e
+            }
+        })
+    </script>
+</head>
+</html>

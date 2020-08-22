@@ -81,8 +81,8 @@ view model =
                     , Html.Attributes.value code
                     , Html.Events.onInput GotCode
                     , Html.Attributes.placeholder "Type some mondatszerű code here..."
-                    , Html.Attributes.rows (String.split "\n" code |> List.length)
-                    , Html.Attributes.cols (String.split "\n" code |> List.map String.length |> List.maximum |> Maybe.withDefault 0)
+                    , Html.Attributes.rows <| 1 + (String.split "\n" code |> List.length)
+                    , Html.Attributes.cols <| 1 + (String.split "\n" code |> List.map String.length |> List.maximum |> Maybe.withDefault 0)
                     , Html.Attributes.attribute "data-autoindent" "on"
                     ]
                     []

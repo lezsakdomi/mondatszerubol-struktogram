@@ -19,16 +19,16 @@
                 for (let node of record.addedNodes) {
                     if (node instanceof HTMLTextAreaElement && 'autoindent' in node.dataset && node.dataset.autoindent !== 'off') {
                         node.addEventListener('keypress', e => {
-                            if (e.key === 'Enter') {
-                                const target = e.target
-                                const s = target.value
-                                const [ss, se] = [Math.min(target.selectionStart, target.selectionEnd), Math.max(target.selectionStart, target.selectionEnd)]
-                                const sd = target.selectionStart === target.selectionEnd
-                                    ? 'none'
-                                    : target.selectionStart < target.selectionEnd
-                                        ? 'forward'
-                                        : 'backward'
+                            const target = e.target
+                            const s = target.value
+                            const [ss, se] = [Math.min(target.selectionStart, target.selectionEnd), Math.max(target.selectionStart, target.selectionEnd)]
+                            const sd = target.selectionStart === target.selectionEnd
+                                ? 'none'
+                                : target.selectionStart < target.selectionEnd
+                                    ? 'forward'
+                                    : 'backward'
 
+                            if (e.key === 'Enter') {
                                 let i, j, k;
                                 for (i = ss - 1; i > 0; i--) {
                                     if (s[i] === "\n") {
@@ -64,6 +64,30 @@
 
                                 e.preventDefault()
                                 target.dispatchEvent(new InputEvent('input'))
+
+                            } else if (e.key === '=') {
+
+                                const map = {
+                                    '=': '⩵', // or =, maybe ＝?
+                                    '~': '≃', // or ≈?
+                                    ':': '≔',
+                                    '?': '≟',
+                                    '!': '≠',
+                                    '/': '≠',
+                                    '<': '≤',
+                                    '>': '≥',
+                                }
+
+                                if (ss === se) {
+                                    if (map[s[ss - 1]]) {
+                                        target.value = s.slice(0, ss - 1) + map[s[ss - 1]] + s.slice(se)
+                                        target.setSelectionRange(ss, se, sd)
+
+                                        e.preventDefault()
+                                        target.dispatchEvent(new InputEvent('input'))
+                                    }
+                                }
+
                             }
                         })
                     }

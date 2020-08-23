@@ -42,10 +42,10 @@ update msg model =
 
         EnterApp ->
             ( LiveRender
-                """I := 0
-Ciklus amíg I <= 10
+                """I ≔ 0
+Ciklus amíg I ≤ 10
   Ha I < 10 akkor
-    I := I + 1
+    I ≔ I + 1
   különben
     Ki: I
     Ki: "Manual abort!"
@@ -54,9 +54,9 @@ Ciklus amíg I <= 10
 Ciklus vége
 end of loop
 Ciklus
-  Ha I < 10 akkor I := I + 1
+  Ha I < 10 akkor I ≔ I + 1
   különben Ki: I
-amíg I <= 10
+amíg I ≤ 10
 Ciklus vége
 end of loop"""
             , Task.attempt (\_ -> NoOp) (Browser.Dom.focus "textarea")

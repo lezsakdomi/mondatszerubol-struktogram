@@ -9,6 +9,7 @@
         textarea {
             display: block;
             resize: none;
+            margin-bottom: 1em;
         }
     </style>
 
@@ -18,16 +19,16 @@
                 for (let node of record.addedNodes) {
                     if (node instanceof HTMLTextAreaElement && 'autoindent' in node.dataset && node.dataset.autoindent !== 'off') {
                         node.addEventListener('keypress', e => {
-                            if (e.key === 'Enter') {
-                                const target = e.target
-                                const s = target.value
-                                const [ss, se] = [Math.min(target.selectionStart, target.selectionEnd), Math.max(target.selectionStart, target.selectionEnd)]
-                                const sd = target.selectionStart === target.selectionEnd
-                                    ? 'none'
-                                    : target.selectionStart < target.selectionEnd
-                                        ? 'forward'
-                                        : 'backward'
+                            const target = e.target
+                            const s = target.value
+                            const [ss, se] = [Math.min(target.selectionStart, target.selectionEnd), Math.max(target.selectionStart, target.selectionEnd)]
+                            const sd = target.selectionStart === target.selectionEnd
+                                ? 'none'
+                                : target.selectionStart < target.selectionEnd
+                                    ? 'forward'
+                                    : 'backward'
 
+                            if (e.key === 'Enter') {
                                 let i, j, k;
                                 for (i = ss - 1; i > 0; i--) {
                                     if (s[i] === "\n") {
@@ -63,6 +64,30 @@
 
                                 e.preventDefault()
                                 target.dispatchEvent(new InputEvent('input'))
+
+                            } else if (e.key === '=') {
+
+                                const map = {
+                                    '=': '⩵', // or =, maybe ＝?
+                                    '~': '≃', // or ≈?
+                                    ':': '≔',
+                                    '?': '≟',
+                                    '!': '≠',
+                                    '/': '≠',
+                                    '<': '≤',
+                                    '>': '≥',
+                                }
+
+                                if (ss === se) {
+                                    if (map[s[ss - 1]]) {
+                                        target.value = s.slice(0, ss - 1) + map[s[ss - 1]] + s.slice(se)
+                                        target.setSelectionRange(ss, se, sd)
+
+                                        e.preventDefault()
+                                        target.dispatchEvent(new InputEvent('input'))
+                                    }
+                                }
+
                             }
                         })
                     }
@@ -85,6 +110,9 @@
                     this.resize()
                 })
 
+                const controlsDiv = document.createElement('div')
+                shadow.appendChild(controlsDiv)
+
                 this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
                 this.svg.setAttribute("xmlns", "http://www.w3.org/2000/svg")
                 shadow.appendChild(this.svg)
@@ -97,14 +125,82 @@
                 })
                 shadow.insertBefore(this.img, this.svg)
 
+                const saveAsSvgButton = document.createElement('button')
+                saveAsSvgButton.innerText = "💾 (SVG)"
+                saveAsSvgButton.addEventListener('click', () => {
+                    const a = document.createElement('a')
+                    a.href = this.imageUrl
+                    a.download = "diagram.svg"
+                    a.click()
+                })
+                controlsDiv.appendChild(saveAsSvgButton)
+
+                const saveAsPngButton = document.createElement('button')
+                saveAsPngButton.innerText = "💾"
+                saveAsPngButton.addEventListener('click', () => {
+                    const canvas = document.createElement('canvas')
+                    canvas.width = this.svg.clientWidth
+                    canvas.height = this.svg.clientHeight
+
+                    const img = document.createElement('img')
+                    img.src = this.imageUrl
+                    img.addEventListener('load', () => {
+                        const ctx = canvas.getContext('2d')
+                        ctx.drawImage(img, 0, 0)
+
+                        const a = document.createElement('a')
+                        a.href = canvas.toDataURL('image/png')
+                        a.download = "diagram.png"
+                        a.click()
+                    })
+                })
+                controlsDiv.appendChild(saveAsPngButton)
+
+                const copyAsUrlButton = document.createElement('button')
+                copyAsUrlButton.innerText = "🔗 (SVG)"
+                copyAsUrlButton.addEventListener('click', () => {
+                    navigator.clipboard.writeText(`data:image/svg+xml,${this.svg.outerHTML}`)
+                })
+                controlsDiv.appendChild(copyAsUrlButton)
+
+                const copyAsSvgButton = document.createElement('button')
+                copyAsSvgButton.innerText = "📋"
+                copyAsSvgButton.addEventListener('click', () => {
+                    if (!navigator.clipboard.write) {
+                        alert("Seems like copying image to clipboard is not supported in your browser")
+                        return
+                    }
+
+                    const canvas = document.createElement('canvas')
+                    canvas.width = this.svg.clientWidth
+                    canvas.height = this.svg.clientHeight
+
+                    const img = document.createElement('img')
+                    img.src = this.imageUrl
+                    img.addEventListener('load', () => {
+                        const ctx = canvas.getContext('2d')
+                        ctx.fillStyle = 'white'
+                        ctx.fillRect(0, 0, img.width, img.height)
+                        ctx.drawImage(img, 0, 0, img.width, img.height)
+
+                        canvas.toBlob(blob => {
+                            navigator.clipboard.write([new ClipboardItem({[blob.type]: blob})])
+                        })
+
+                    })
+                })
+                controlsDiv.appendChild(copyAsSvgButton)
+
                 new MutationObserver(records => records.forEach(record => {
                     switch (record.type) {
                         case 'childList':
                             for (let node of record.addedNodes) {
                                 this.svg.appendChild(node.graphicNode)
+                                node.graphicNode.setAttribute('transform', 'translate(2, 0)')
                             }
                             for (let node of record.removedNodes) {
                                 this.svg.removeChild(node.graphicNode)
+                                node.graphicNode.removeAttribute('transform')
                             }
                             break
 
@@ -120,19 +216,20 @@
 
             get imageUrl() {
                 return URL.createObjectURL(this.image)
-                // return `data:image/svg+xml,${this.svg.outerHTML}`
-                // return `data:image/svg+xml;base64,${btoa(this.svg.outerHTML)}`
             }
 
             resize() {
                 const element = this.childNodes[0]
                 const size = element.computedSize
 
-                this.svg.setAttribute('width', String(element.width = size.width))
-                this.svg.setAttribute('height', String(element.height = size.height))
+                element.width = size.width
+                element.height = size.height
 
-                this.img.setAttribute('width', String(element.width = size.width))
-                this.img.setAttribute('height', String(element.height = size.height))
+                this.svg.setAttribute('width', String(size.width + 4))
+                this.svg.setAttribute('height', String(size.height + 2))
+
+                this.img.setAttribute('width', String(size.width + 4))
+                this.img.setAttribute('height', String(size.height + 2))
             }
         })
 
@@ -149,10 +246,11 @@
                 const g = document.createElementNS("http://www.w3.org/2000/svg", 'g')
                 this.graphicNode = g
 
-                this.rect = document.createElementNS("http://www.w3.org/2000/svg", "rect")
-                this.rect.style.fill = 'none'
-                this.rect.style.stroke = 'black'
-                g.appendChild(this.rect)
+                this.polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline")
+                this.polyline.style.fill = 'none'
+                this.polyline.style.stroke = 'black'
+                this.polyline.style.strokeWidth = '3'
+                g.appendChild(this.polyline)
 
                 new MutationObserver(records => records.forEach(record => {
                     switch (record.type) {
@@ -196,14 +294,20 @@
             }
 
             set width(width) {
-                this.rect.setAttribute('width', String(width))
+                this._width = width
+                this.updatePolylineDimensions()
                 for (let element of this.children) {
                     element.width = width
                 }
             }
 
             set height(height) {
-                this.rect.setAttribute('height', String(height))
+                this._height = height
+                this.updatePolylineDimensions()
+            }
+
+            updatePolylineDimensions() {
+                this.polyline.setAttribute('points', `0,0 0,${this._height} ${this._width},${this._height} ${this._width},0`)
             }
 
             resize() {
@@ -218,7 +322,7 @@
 
         window.customElements.define('x-utasitas', class Utasítás extends HTMLElement {
             get padding() {
-                return 5
+                return (this.height - this.text.getBoundingClientRect().height) / 2
             }
 
             get height() {
@@ -241,6 +345,8 @@
                 g.appendChild(this.rect)
 
                 this.text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                this.text.setAttribute('dominant-baseline', 'hanging')
+                this.text.setAttribute('font-family', 'monospace')
                 g.appendChild(this.text)
 
                 new MutationObserver(() => {
@@ -251,7 +357,7 @@
             }
 
             get computedSize() {
-                const size = this.text.getBBox()
+                const size = this.text.getBoundingClientRect()
                 return {
                     width: size.width + 2 * this.padding,
                     height: this.height,
@@ -260,12 +366,12 @@
 
             set width(width) {
                 this.rect.setAttribute('width', width)
-                this.text.setAttribute('x', this.padding)
+                this.text.setAttribute('x', this.padding + 2)
             }
 
             set height(height) {
                 this.rect.setAttribute('height', height)
-                this.text.setAttribute('y', height - this.padding)
+                this.text.setAttribute('y', this.padding + 2)
             }
         })
 
@@ -295,16 +401,22 @@
                 g.appendChild(this.rect)
 
                 this.text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                this.text.setAttribute('dominant-baseline', 'middle')
+                this.text.setAttribute('font-family', 'monospace')
                 g.appendChild(this.text)
 
                 this.tText = document.createElementNS("http://www.w3.org/2000/svg", "text")
                 this.tText.textContent = "i"
                 this.tText.style.fill = "grey"
+                this.tText.setAttribute('dominant-baseline', 'middle')
+                this.tText.setAttribute('font-family', 'monospace')
                 g.appendChild(this.tText)
 
                 this.fText = document.createElementNS("http://www.w3.org/2000/svg", "text")
                 this.fText.textContent = "n"
                 this.fText.style.fill = "grey"
+                this.fText.setAttribute('dominant-baseline', 'middle')
+                this.fText.setAttribute('font-family', 'monospace')
                 g.appendChild(this.fText)
 
                 this.polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline")
@@ -359,7 +471,7 @@
             }
 
             get textSize() {
-                return this.text.getBBox({clipped: false, fill: false, markers: false, stroke: true})
+                return this.text.getBoundingClientRect()
             }
 
             set width(width) {
@@ -367,9 +479,9 @@
                 const pivot = this.computedSize.left.width;
 
                 // this.text.setAttribute('x', String(pivot - (this.textSize.width) / 2))
-                this.text.setAttribute('x', String((width - this.textSize.width) / 2))
-                this.tText.setAttribute('x', String(this.padding))
-                this.fText.setAttribute('x', String(width - this.padding - 10))
+                this.text.setAttribute('x', String((width - this.textSize.width) / 2 + 2))
+                this.tText.setAttribute('x', String(this.padding + 2))
+                this.fText.setAttribute('x', String(width - this.padding - 10 + 2))
                 this.rect.setAttribute('width', width)
                 // this.polyline.setAttribute('points', `0,0 ${pivot},${this.height} ${width},0`)
                 this.polyline.setAttribute('points', `0,0 ${this.height},${this.height} ${width - this.height},${this.height} ${width},0`)
@@ -381,9 +493,9 @@
 
             set height(height) {
                 const [, left, right] = this.childNodes
-                this.text.setAttribute('y', String(this.padding + this.textSize.height))
-                this.tText.setAttribute('y', String(this.height - this.padding))
-                this.fText.setAttribute('y', String(this.height - this.padding))
+                this.text.setAttribute('y', String(this.padding + this.textSize.height / 2))
+                this.tText.setAttribute('y', String(this.height - 10))
+                this.fText.setAttribute('y', String(this.height - 10))
                 this.rect.setAttribute('height', String(this.height))
                 left.height = height - this.height
                 right.height = height - this.height
@@ -422,6 +534,8 @@
                 g.appendChild(this.rect)
 
                 this.text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                this.text.setAttribute('dominant-baseline', 'hanging')
+                this.text.setAttribute('font-family', 'monospace')
                 g.appendChild(this.text)
 
                 new MutationObserver(records => records.forEach(record => {
@@ -466,7 +580,7 @@
             }
 
             get textSize() {
-                return this.text.getBBox({clipped: false, fill: false, markers: false, stroke: true})
+                return this.text.getBoundingClientRect()
             }
 
             set width(width) {
@@ -479,7 +593,7 @@
 
             set height(height) {
                 const [, body] = this.childNodes
-                this.text.setAttribute('y', String(this.height - this.padding))
+                this.text.setAttribute('y', String(this.height - this.textSize.height - this.padding))
                 this.rect.setAttribute('height', height)
                 body.height = height - this.height
             }
@@ -517,6 +631,8 @@
                 g.appendChild(this.rect)
 
                 this.text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                this.text.setAttribute('dominant-baseline', 'hanging')
+                this.text.setAttribute('font-family', 'monospace')
                 g.appendChild(this.text)
 
                 new MutationObserver(records => records.forEach(record => {
@@ -561,7 +677,7 @@
             }
 
             get textSize() {
-                return this.text.getBBox({clipped: false, fill: false, markers: false, stroke: true})
+                return this.text.getBoundingClientRect()
             }
 
             set width(width) {
@@ -574,7 +690,7 @@
 
             set height(height) {
                 const [, body] = this.childNodes
-                this.text.setAttribute('y', String(height - this.height + this.padding + this.textSize.height))
+                this.text.setAttribute('y', String(height - this.height + this.padding))
                 this.rect.setAttribute('height', height)
                 body.height = height - this.height
             }

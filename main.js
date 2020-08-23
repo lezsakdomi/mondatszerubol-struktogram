@@ -5152,7 +5152,7 @@ var $author$project$Main$update = F2(
 					$elm$core$Platform$Cmd$none);
 			default:
 				return _Utils_Tuple2(
-					$author$project$Main$LiveRender('I := 0\nCiklus amíg I <= 10\n  Ha I < 10 akkor\n    I := I + 1\n  különben\n    Ki: I\n    Ki: "Manual abort!"\n    BREAK\n  Elágazás vége\nCiklus vége\nend of loop\nCiklus\n  Ha I < 10 akkor I := I + 1\n  különben Ki: I\namíg I <= 10\nCiklus vége\nend of loop'),
+					$author$project$Main$LiveRender('I ≔ 0\nCiklus amíg I ≤ 10\n  Ha I < 10 akkor\n    I ≔ I + 1\n  különben\n    Ki: I\n    Ki: "Manual abort!"\n    BREAK\n  Elágazás vége\nCiklus vége\nend of loop\nCiklus\n  Ha I < 10 akkor I ≔ I + 1\n  különben Ki: I\namíg I ≤ 10\nCiklus vége\nend of loop'),
 					A2(
 						$elm$core$Task$attempt,
 						function (_v1) {
@@ -6257,10 +6257,10 @@ var $author$project$Main$view = function (model) {
 							$elm$html$Html$Events$onInput($author$project$Msg$GotCode),
 							$elm$html$Html$Attributes$placeholder('Type some mondatszerű code here...'),
 							$elm$html$Html$Attributes$rows(
-							$elm$core$List$length(
+							1 + $elm$core$List$length(
 								A2($elm$core$String$split, '\n', code))),
 							$elm$html$Html$Attributes$cols(
-							A2(
+							1 + A2(
 								$elm$core$Maybe$withDefault,
 								0,
 								$elm$core$List$maximum(

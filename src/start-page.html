@@ -172,9 +172,11 @@
                         case 'childList':
                             for (let node of record.addedNodes) {
                                 this.svg.appendChild(node.graphicNode)
+                                node.graphicNode.setAttribute('transform', 'translate(2, 0)')
                             }
                             for (let node of record.removedNodes) {
                                 this.svg.removeChild(node.graphicNode)
+                                node.graphicNode.removeAttribute('transform')
                             }
                             break
 
@@ -196,11 +198,14 @@
                 const element = this.childNodes[0]
                 const size = element.computedSize
 
-                this.svg.setAttribute('width', String(element.width = size.width))
-                this.svg.setAttribute('height', String(element.height = size.height))
+                element.width = size.width
+                element.height = size.height
 
-                this.img.setAttribute('width', String(element.width = size.width))
-                this.img.setAttribute('height', String(element.height = size.height))
+                this.svg.setAttribute('width', String(size.width + 4))
+                this.svg.setAttribute('height', String(size.height + 2))
+
+                this.img.setAttribute('width', String(size.width + 4))
+                this.img.setAttribute('height', String(size.height + 2))
             }
         })
 
@@ -217,10 +222,11 @@
                 const g = document.createElementNS("http://www.w3.org/2000/svg", 'g')
                 this.graphicNode = g
 
-                this.rect = document.createElementNS("http://www.w3.org/2000/svg", "rect")
-                this.rect.style.fill = 'none'
-                this.rect.style.stroke = 'black'
-                g.appendChild(this.rect)
+                this.polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline")
+                this.polyline.style.fill = 'none'
+                this.polyline.style.stroke = 'black'
+                this.polyline.style.strokeWidth = '3'
+                g.appendChild(this.polyline)
 
                 new MutationObserver(records => records.forEach(record => {
                     switch (record.type) {
@@ -264,14 +270,20 @@
             }
 
             set width(width) {
-                this.rect.setAttribute('width', String(width))
+                this._width = width
+                this.updatePolylineDimensions()
                 for (let element of this.children) {
                     element.width = width
                 }
             }
 
             set height(height) {
-                this.rect.setAttribute('height', String(height))
+                this._height = height
+                this.updatePolylineDimensions()
+            }
+
+            updatePolylineDimensions() {
+                this.polyline.setAttribute('points', `0,0 0,${this._height} ${this._width},${this._height} ${this._width},0`)
             }
 
             resize() {

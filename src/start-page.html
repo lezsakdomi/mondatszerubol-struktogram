@@ -157,14 +157,14 @@
                 controlsDiv.appendChild(saveAsPngButton)
 
                 const copyAsUrlButton = document.createElement('button')
-                copyAsUrlButton.innerText = "🔗 (SVG)"
+                copyAsUrlButton.innerText = "Copy 🔗 to 📋 (SVG)"
                 copyAsUrlButton.addEventListener('click', () => {
                     navigator.clipboard.writeText(`data:image/svg+xml,${this.svg.outerHTML}`)
                 })
                 controlsDiv.appendChild(copyAsUrlButton)
 
                 const copyAsSvgButton = document.createElement('button')
-                copyAsSvgButton.innerText = "📋"
+                copyAsSvgButton.innerText = "Copy to 📋"
                 copyAsSvgButton.addEventListener('click', () => {
                     if (!navigator.clipboard.write) {
                         alert("Seems like copying image to clipboard is not supported in your browser")
